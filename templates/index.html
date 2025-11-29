@@ -400,9 +400,16 @@
             <div class="header-top">
                 <div class="page-title"><h2 id="pageTitle">لوحة التحكم</h2><span id="pageSubtitle">نظرة شاملة على حالات السرقة المكتشفة</span></div>
                 <div class="header-actions">
-                    <button class="btn btn-outline" onclick="refreshAlerts()"><i class="fas fa-sync-alt"></i> تحديث</button>
-                    <button class="btn btn-success" onclick="exportReport()"><i class="fas fa-file-export"></i> تصدير التقرير</button>
-                </div>
+    <button class="btn btn-danger" onclick="resetSystem()">
+        <i class="fas fa-trash"></i> مسح البيانات
+    </button>
+    <button class="btn btn-outline" onclick="refreshAlerts()">
+        <i class="fas fa-sync-alt"></i> تحديث
+    </button>
+    <button class="btn btn-success" onclick="exportReport()">
+        <i class="fas fa-file-export"></i> تصدير التقرير
+    </button>
+</div>
             </div>
             <div class="alerts-ticker">
                 <div class="ticker-label"><i class="fas fa-bell"></i><span>تنبيهات ذكية</span></div>
@@ -1416,6 +1423,26 @@
                 }
             } catch (e) { console.error(e); }
         });
+        async function resetSystem() {
+    if (!confirm('هل أنت متأكد من مسح جميع البيانات وإعادة تعيين النظام؟\n\nسيتم حذف جميع الملفات المرفوعة والبيانات المحللة.')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert('✓ تم إعادة تعيين النظام بنجاح');
+            location.reload(); // Reload the page to show upload modal
+        } else {
+            alert('حدث خطأ: ' + (data.error || 'خطأ غير معروف'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('حدث خطأ في الاتصال بالخادم');
+    }
+}
     </script>
 </body>
 </html>
