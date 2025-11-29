@@ -135,34 +135,48 @@ def clean_ai_response(text):
 def analyze_with_ai(prompt, max_tokens=800):
     """تحليل باستخدام Hugging Face AI"""
     if not hf_client:
-        raise Exception("لم يتم تكوين مفتاح API للذكاء الاصطناعي")
+        return "تعذر الاتصال بالذكاء الاصطناعي. لم يتم تكوين مفتاح API."
     
     try:
-        # Use the correct method: chat.completions.create
-        response = hf_client.chat.completions.create(
+        # Try using text generation instead of chat
+        response = hf_client.text_generation(
+            prompt=f"أنت محلل بيانات خبير. {prompt}",
             model="meta-llama/Llama-3.2-3B-Instruct",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "أنت محلل بيانات خبير متخصص في قطاع الكهرباء المصري وكشف السرقات. اكتب بالعربية الفصحى البسيطة. لا تستخدم أي رموز أو إيموجي. كن مباشراً ومحدداً. استخدم الأرقام والنسب لدعم تحليلك. قدم توصيات عملية قابلة للتنفيذ."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=max_tokens,
+            max_new_tokens=max_tokens,
             temperature=0.7,
-            top_p=0.9
+            top_p=0.9,
+            do_sample=True
         )
         
-        # Extract text from response
-        text = response.choices[0].message.content.strip()
+        text = response.strip()
         return clean_ai_response(text)
     
     except Exception as e:
-        print(f"AI Error: {e}")
-        # Fallback: return a basic analysis instead of failing
+        print(f"AI Error (text_generation): {e}")
+        
+        # Try alternative: post method
+        try:
+            response = hf_client.post(
+                json={
+                    "inputs": f"أنت محلل بيانات خبير. {prompt}",
+                    "parameters": {
+                        "max_new_tokens": max_tokens,
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                        "return_full_text": False
+                    }
+                },
+                model="meta-llama/Llama-3.2-3B-Instruct"
+            )
+            
+            if isinstance(response, list) and len(response) > 0:
+                text = response[0].get("generated_text", "")
+                return clean_ai_response(text)
+            
+        except Exception as e2:
+            print(f"AI Error (post): {e2}")
+        
+        # Final fallback
         return "تعذر الاتصال بالذكاء الاصطناعي حاليا. يتم عرض تحليل اساسي للبيانات."
 
 # DATA PREPROCESSING 
