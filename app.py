@@ -4,7 +4,21 @@ Electricity Fraud Detection System - AI Powered
 Version: 4.0.0
 Developed for: Digital Egypt Pioneers Initiative (DEPI)
 """
-
+from flask import Flask, render_template, request, jsonify, send_file
+from flask_cors import CORS  # Add this import
+import pandas as pd
+import numpy as np
+import os
+import json
+from huggingface_hub import InferenceClient
+import warnings
+import time
+from datetime import datetime
+from functools import lru_cache
+from collections import defaultdict
+from dotenv import load_dotenv
+import io
+import base64
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import numpy as np
@@ -21,7 +35,18 @@ import io
 import base64
 import atexit
 from threading import Lock
+warnings.filterwarnings('ignore')
+load_dotenv()
+app = Flask(__name__)
 
+# ============ ADD CORS SUPPORT ============
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 # Add a lock for thread safety
 data_lock = Lock()
 # ML Libraries
