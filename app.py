@@ -19,7 +19,11 @@ from collections import defaultdict
 from dotenv import load_dotenv
 import io
 import base64
+import atexit
+from threading import Lock
 
+# Add a lock for thread safety
+data_lock = Lock()
 # ML Libraries
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -692,6 +696,39 @@ def generate_insights(df, stats):
         insights = []
     
     return insights
+def reset_data_store():
+    """Reset the data store to initial state"""
+    with data_lock:
+        data_store['df'] = None
+        data_store['df_original'] = None
+        data_store['stats'] = {}
+        data_store['loaded'] = False
+        data_store['cache'] = {}
+        data_store['last_update'] = None
+        data_store['geographic_analysis'] = {}
+        data_store['ml_models'] = {}
+        data_store['model_comparison'] = {}
+        data_store['feature_importance'] = {}
+        data_store['scaler'] = None
+        data_store['label_encoders'] = {}
+        data_store['ai_alerts'] = []
+        data_store['class_imbalance_report'] = {}
+        data_store['high_risk_customers'] = []
+        
+        # Clear uploads folder
+        for file in os.listdir(app.config['UPLOAD_FOLDER']):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file)
+            try:
+                if os.path.isfile(file_path) and not file.endswith('.gitkeep'):
+                    os.unlink(file_path)
+            except Exception as e:
+                print(f"Error deleting {file_path}: {e}")
+
+# Call reset on startup
+reset_data_store()
+
+# Also reset when the app shuts down
+atexit.register(reset_data_store)
 
 #  FLASK ROUTES 
 
@@ -1173,7 +1210,17 @@ def analyze_chart():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+@app.route('/api/reset', methods=['POST'])
+def reset_system():
+    """Reset the entire system"""
+    try:
+        reset_data_store()
+        return jsonify({
+            'success': True,
+            'message': 'تم إعادة تعيين النظام بنجاح'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 @app.route('/api/health')
 def health_check():
     return jsonify({
@@ -1192,6 +1239,15 @@ if __name__ == '__main__':
     print("   Version 4.0.0 | DEPI Graduation Project")
     print("="*70)
     print(f"   AI Status: {'Enabled' if hf_client else 'Disabled'}")
-    print(f"   Server: http://localhost:5000")
+    print(f"   Environment: {os.getenv('FLASK_ENV', 'development')}")
     print("="*70 + "\n")
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    
+    # Get port from environment variable (Railway sets this)
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_ENV') != 'production'
+    
+    app.run(
+        debug=debug,
+        port=port,
+        host='0.0.0.0'
+    )
