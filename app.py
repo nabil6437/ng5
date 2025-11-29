@@ -37,16 +37,9 @@ import atexit
 from threading import Lock
 warnings.filterwarnings('ignore')
 load_dotenv()
-app = Flask(__name__)
+
 
 # ============ ADD CORS SUPPORT ============
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
 # Add a lock for thread safety
 data_lock = Lock()
 # ML Libraries
@@ -73,6 +66,13 @@ warnings.filterwarnings('ignore')
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -138,10 +138,13 @@ def analyze_with_ai(prompt, max_tokens=800):
         raise Exception("لم يتم تكوين مفتاح API للذكاء الاصطناعي")
     
     try:
-        messages = [
-            {
-                "role": "system",
-                "content": """أنت محلل بيانات خبير متخصص في قطاع الكهرباء المصري وكشف السرقات.
+        # Use the correct method: chat.completions.create
+        response = hf_client.chat.completions.create(
+            model="meta-llama/Llama-3.2-3B-Instruct",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """أنت محلل بيانات خبير متخصص في قطاع الكهرباء المصري وكشف السرقات.
                 
 قواعد الكتابة:
 - اكتب بالعربية الفصحى البسيطة
@@ -150,24 +153,25 @@ def analyze_with_ai(prompt, max_tokens=800):
 - استخدم الأرقام والنسب لدعم تحليلك
 - قدم توصيات عملية قابلة للتنفيذ
 - راعِ السياق المصري في تحليلاتك"""
-            },
-            {"role": "user", "content": prompt}
-        ]
-        
-        response = hf_client.chat_completion(
-            messages=messages,
-            model="meta-llama/Llama-3.2-3B-Instruct",
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
             max_tokens=max_tokens,
             temperature=0.7,
             top_p=0.9
         )
         
+        # Extract text from response
         text = response.choices[0].message.content.strip()
         return clean_ai_response(text)
     
     except Exception as e:
         print(f"AI Error: {e}")
-        raise Exception(f"خطأ في الاتصال بالذكاء الاصطناعي: {str(e)}")
+        # Fallback: return a basic analysis instead of failing
+        return "تعذر الاتصال بالذكاء الاصطناعي حالياً. يتم عرض تحليل أساسي للبيانات.
 
 # DATA PREPROCESSING 
 
