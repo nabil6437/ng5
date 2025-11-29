@@ -133,51 +133,68 @@ def clean_ai_response(text):
 # AI FUNCTIONS 
 
 def analyze_with_ai(prompt, max_tokens=800):
-    """تحليل باستخدام Hugging Face AI"""
+    """تحليل باستخدام Hugging Face AI - URL الجديد"""
+    
     if not hf_client:
-        return "تعذر الاتصال بالذكاء الاصطناعي. لم يتم تكوين مفتاح API."
+        raise Exception("لم يتم تكوين مفتاح API للذكاء الاصطناعي")
     
     try:
-        # Try using text generation instead of chat
-        response = hf_client.text_generation(
-            prompt=f"أنت محلل بيانات خبير. {prompt}",
-            model="meta-llama/Llama-3.2-3B-Instruct",
-            max_new_tokens=max_tokens,
-            temperature=0.7,
-            top_p=0.9,
-            do_sample=True
-        )
+        import requests
         
-        text = response.strip()
-        return clean_ai_response(text)
-    
+        # استخدام الـ URL الجديد مباشرة
+        API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+        
+        headers = {
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "inputs": f"You are an expert data analyst specializing in electricity fraud detection. Analyze the following in Arabic:\n\n{prompt[:600]}",
+            "parameters": {
+                "max_new_tokens": min(max_tokens, 500),
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "do_sample": True,
+                "return_full_text": False
+            }
+        }
+        
+        print(f"Calling Hugging Face API...")
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        
+        print(f"API Response Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if isinstance(result, list) and len(result) > 0:
+                text = result[0].get("generated_text", "")
+                if text and len(text.strip()) > 20:
+                    print(f"✓ AI Response received: {len(text)} chars")
+                    return clean_ai_response(text)
+        
+        elif response.status_code == 503:
+            # Model is loading
+            print("Model is loading, waiting...")
+            import time
+            time.sleep(3)
+            
+            # Try again
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    text = result[0].get("generated_text", "")
+                    if text and len(text.strip()) > 20:
+                        return clean_ai_response(text)
+        
+        print(f"API Error Response: {response.text[:200]}")
+        raise Exception(f"API returned status {response.status_code}")
+        
     except Exception as e:
-        print(f"AI Error (text_generation): {e}")
-        
-        # Try alternative: post method
-        try:
-            response = hf_client.post(
-                json={
-                    "inputs": f"أنت محلل بيانات خبير. {prompt}",
-                    "parameters": {
-                        "max_new_tokens": max_tokens,
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                        "return_full_text": False
-                    }
-                },
-                model="meta-llama/Llama-3.2-3B-Instruct"
-            )
-            
-            if isinstance(response, list) and len(response) > 0:
-                text = response[0].get("generated_text", "")
-                return clean_ai_response(text)
-            
-        except Exception as e2:
-            print(f"AI Error (post): {e2}")
-        
-        # Final fallback
-        return "تعذر الاتصال بالذكاء الاصطناعي حاليا. يتم عرض تحليل اساسي للبيانات."
+        print(f"AI Error: {e}")
+        raise Exception(f"فشل الاتصال بالذكاء الاصطناعي: {str(e)}")
 
 # DATA PREPROCESSING 
 
